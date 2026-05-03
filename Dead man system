@@ -1,0 +1,48 @@
+import os
+from pathlib import Path
+from datetime import datetime, timedelta
+from twilio.rest import Client
+
+ACTIVITY_LOG = "last_activity.txt"
+IDLE_THRESHOLD_DAYS = 3
+
+TWILIO_SID = 'your_account_sid'
+TWILIO_TOKEN = 'your_auth_token'
+SENDER_VPN = 'your_twilio_number'
+EMERGENCY_RECIPIENT = 'recipient_phone_number'
+
+def dispatch_alert(days_idle):
+    messenger = Client(TWILIO_SID, TWILIO_TOKEN)
+    
+    alert_payload = (
+        f"SAFETY ALERT: The user has been inactive for {days_idle} days. "
+        "Please attempt to make contact immediately."
+    )
+    
+    try:
+        receipt = messenger.messages.create(
+            body=alert_payload,
+            from_=SENDER_VPN,
+            to=EMERGENCY_RECIPIENT
+        )
+        print(f"Notification sent successfully. Reference: {receipt.sid}")
+    except Exception as error:
+        print(f"Failed to send alert: {error}")
+
+def validate_user_activity():
+    tracker_file = Path(ACTIVITY_LOG)
+
+    if not tracker_file.exists():
+        tracker_file.touch()
+        return
+
+    last_heartbeat = datetime.fromtimestamp(tracker_file.stat().st_mtime)
+    elapsed_time = datetime.now() - last_heartbeat
+    
+    if elapsed_time > timedelta(days=IDLE_THRESHOLD_DAYS):
+        dispatch_alert(elapsed_time.days)
+    else:
+        print(f"System check passed. Last activity recorded {elapsed_time.days} days ago.")
+
+if __name__ == "__main__":
+    validate_user_activity()
